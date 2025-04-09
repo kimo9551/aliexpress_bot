@@ -1,5 +1,3 @@
-# bot.py
-
 import os
 from telegram import Update
 from telegram.ext import (
@@ -46,27 +44,21 @@ async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ الرابط غير صحيح. تأكد من إرساله من AliExpress.")
 
 
-async def main():
-    # إعداد البوت
+def main():
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    # إضافة الأوامر
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_link))
 
-    # إعداد Webhook لـ Render
     port = int(os.environ.get("PORT", 8443))
     webhook_url = f"https://{os.environ['RENDER_EXTERNAL_HOSTNAME']}/"
 
-    await app.start()
-    await app.bot.set_webhook(webhook_url)
-    await app.updater.start_webhook(
+    # ✅ تشغيل البوت مع webhook بطريقة صحيحة
+    app.run_webhook(
         listen="0.0.0.0",
         port=port,
-        url_path="",
         webhook_url=webhook_url
     )
 
 if __name__ == '__main__':
-    import asyncio
-    asyncio.run(main())
+    main()
