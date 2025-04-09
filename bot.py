@@ -1,5 +1,6 @@
 # bot.py
 
+import os
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, filters
 from aliexpress_api import extract_product_id, get_aliexpress_product_details
@@ -46,4 +47,16 @@ async def main():
 
 if __name__ == '__main__':
     import asyncio
-    asyncio.run(main())
+
+    async def run():
+        app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_link))
+
+        port = int(os.environ.get("PORT", 8443))
+        await app.start()
+        await app.bot.set_webhook(f"https://{os.environ['RENDER_EXTERNAL_HOSTNAME']}/")
+        await app.updater.start_webhook(listen="0.0.0.0", port=port, url_path="", webhook_url=f"https://{os.environ['RENDER_EXTERNAL_HOSTNAME']}/")
+
+    asyncio.run(run())
