@@ -8,28 +8,9 @@ from telegram.ext import (
     filters,
 )
 from aliexpress_api import extract_product_id, get_aliexpress_product_details
-import re
-import requests
 
 TELEGRAM_TOKEN = '7312484235:AAE6RX6JpK5DIDAZi1_J2by86tENS1-DzsM'
 
-
-
-def extract_product_id(url):
-    # 1. فك الرابط المختصر لو كان من s.click.aliexpress
-    if "s.click.aliexpress.com" in url:
-        try:
-            response = requests.get(url, allow_redirects=True, timeout=5)
-            url = response.url  # هذا هو الرابط الأصلي
-        except:
-            return None
-
-    # 2. الآن نحاول نسحب ID المنتج من الرابط الطويل
-    match = re.search(r'/item/(\d+)\.html', url)
-    if match:
-        return match.group(1)
-    else:
-        return None
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("أرسل رابط منتج من AliExpress لتحليله.")
 
