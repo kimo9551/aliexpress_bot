@@ -31,22 +31,48 @@ def extract_product_id(url):
 
 
 def get_aliexpress_product_details(product_id):
-    api_name = "api.getPromotionProductDetail"
-    base_url = f"https://api-gw.aliexpress.com/openapi/param2/2/portals.open/{api_name}/{APP_KEY}"
-    
-    timestamp = int(time.time() * 1000)
+    api_url = f"https://gw.api.alibaba.com/openapi/param2/2/portals.open/api.product.get/{APP_KEY}"
+
     params = {
-        "app_key": APP_KEY,
         "productId": product_id,
-        "timestamp": timestamp,
-        "sign_method": "md5"
+        "fields": "productTitle,salePrice,discount,discountPrice,storeInfo,originalPrice,shippingInformation",
+        "timestamp": int(time.time() * 1000)
     }
 
-    sign_str = APP_SECRET + ''.join(f"{k}{params[k]}" for k in sorted(params)) + APP_SECRET
-    params["sign"] = hashlib.md5(sign_str.encode('utf-8')).hexdigest().upper()
+    sorted_params = ''.join(f"{k}{params[k]}" for k in sorted(params))
+    sign = hashlib.md5((APP_SECRET + sorted_params + APP_SECRET).encode()).hexdigest().upper()
+    params["sign"] = sign
 
-    response = requests.get(base_url, params=params)
-    if response.status_code == 200:
-        return response.json()
-    else:
+    try:
+        response = requests.get(api_url, params=params, timeout=10)
+        
+        # ✅ تحقق: هل الرد فعلاً JSON؟
+        content_type = response.headers.get("Content-Type", "")
+        if "application/json" not in content_type:
+            print("🚨 الرد ليس JSON! محتوى الرد:")
+            print(response.text)
+            return None
+
+        data = response.json()
+
+        if "result" not in data or data.get("error_code"):
+            return None
+
+        result = data["result"]
+
+        return {
+            "price": result.get("originalPrice", "؟"),
+            "discount_price": result.get("salePrice", "؟"),
+            "super_deal_price": result.get("discountPrice", "؟"),
+            "limited_offer_price": result.get("discountPrice", "؟"),
+            "potential_discount_price": result.get("discountPrice", "؟"),
+            "discount_percent": result.get("discount", "؟"),
+            "store_name": result.get("storeInfo", {}).get("storeName", "؟"),
+            "store_rating": result.get("storeInfo", {}).get("positiveRate", "؟"),
+            "shipping_company": result.get("shippingInformation", {}).get("shippingCompany", "؟"),
+            "shipping_fee": result.get("shippingInformation", {}).get("freight", "؟")
+        }
+
+    except Exception as e:
+        print("❌ خطأ أثناء الاتصال بالـ API:", e)
         return None
