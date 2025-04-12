@@ -7,13 +7,21 @@ import re
 
 APP_KEY = '505684'
 APP_SECRET = 'li42sLpysSjGfKEHteMQsrZeJjC05VJa'
-
 def extract_product_id(url):
+    # 1. فك الرابط المختصر لو كان من s.click.aliexpress
+    if "s.click.aliexpress.com" in url:
+        try:
+            response = requests.get(url, allow_redirects=True, timeout=5)
+            url = response.url  # هذا هو الرابط الأصلي
+        except:
+            return None
+
+    # 2. الآن نحاول نسحب ID المنتج من الرابط الطويل
     match = re.search(r'/item/(\d+)\.html', url)
     if match:
         return match.group(1)
-    return None
-
+    else:
+        return None
 def get_aliexpress_product_details(product_id):
     api_name = "api.getPromotionProductDetail"
     base_url = f"https://api-gw.aliexpress.com/openapi/param2/2/portals.open/{api_name}/{APP_KEY}"
