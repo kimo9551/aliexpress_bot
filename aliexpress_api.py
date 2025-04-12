@@ -1,36 +1,31 @@
-# aliexpress_api.py
-
+import re
+import requests
 import hashlib
 import time
-import requests
-import re
+import urllib.parse
 
+# AliExpress API credentials
 APP_KEY = '505684'
 APP_SECRET = 'li42sLpysSjGfKEHteMQsrZeJjC05VJa'
 
+# استخراج productId من الرابط (حتى المختصر)
 def extract_product_id(url):
-    # إذا الرابط مختصر من AliExpress
+    # حل الرابط المختصر إن وجد
     if "s.click.aliexpress.com" in url:
         try:
-            print(f"🔁 Resolving shortened URL: {url}")
-            response = requests.get(url, allow_redirects=True, timeout=10)
-            final_url = response.url
-            print(f"✅ Final resolved URL: {final_url}")
-            url = final_url
-        except Exception as e:
-            print(f"❌ Error resolving shortlink: {e}")
+            response = requests.get(url, allow_redirects=True, timeout=5)
+            url = response.url
+        except:
             return None
 
-    # محاولة استخراج productId
+    # استخراج productId من الرابط الطويل
     match = re.search(r'/item/(\d+)\.html', url)
     if match:
         return match.group(1)
-    else:
-        print(f"❌ Could not extract productId from URL: {url}")
-        return None
+    return None
 
-
-def get_aliexpress_product_details(product_id):
+# جلب بيانات المنتج من AliExpress API
+def get_product_details(product_id):
     api_url = f"https://gw.api.alibaba.com/openapi/param2/2/portals.open/api.product.get/{APP_KEY}"
 
     params = {
@@ -39,18 +34,17 @@ def get_aliexpress_product_details(product_id):
         "timestamp": int(time.time() * 1000)
     }
 
+    # توليد توقيع التحقق
     sorted_params = ''.join(f"{k}{params[k]}" for k in sorted(params))
     sign = hashlib.md5((APP_SECRET + sorted_params + APP_SECRET).encode()).hexdigest().upper()
     params["sign"] = sign
 
     try:
         response = requests.get(api_url, params=params, timeout=10)
-        
-        # ✅ تحقق: هل الرد فعلاً JSON؟
-        content_type = response.headers.get("Content-Type", "")
-        if "application/json" not in content_type:
-            print("🚨 الرد ليس JSON! محتوى الرد:")
-            print(response.text)
+
+        # تأكد أن الرد JSON
+        if "application/json" not in response.headers.get("Content-Type", ""):
+            print("❌ الرد ليس JSON:\n", response.text)
             return None
 
         data = response.json()
@@ -74,5 +68,19 @@ def get_aliexpress_product_details(product_id):
         }
 
     except Exception as e:
-        print("❌ خطأ أثناء الاتصال بالـ API:", e)
+        print("❌ API error:", e)
         return None
+
+# تنسيق الرد باللغة العربية
+def format_product_reply(details):
+    return f"""📣 سعر المنتج بدون تخفيض: {details['price']}$
+💵 سعر التخفيض بالعملات: {details['discount_price']}$
+💵 سعر السوبر ديلز: {details['super_deal_price']}$
+💵 سعر العرض المحدود: {details['limited_offer_price']}$
+💵 سعر التخفيض المحتمل: {details['potential_discount_price']}$
+
+🛍 نسبة التخفيض بالعملات: {details['discount_percent']}
+🏪 إسم المتجر: {details['store_name']}
+🌟 التقييم الإيجابي للمتجر: {details['store_rating']}%
+✈️ شركة الشحن: {details['shipping_company']}
+✈️ عمولة الشحن: {details['shipping_fee']}$"""
